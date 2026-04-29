@@ -41,7 +41,9 @@
 (add-hook 'after-init-hook (lambda ()
 			     (setq make-backup-files nil)
 			     (setq auto-save-default nil)
+			     (setq visible-bell t)
 			     (menu-bar-mode -1)
+			     (global-hl-line-mode)
 			     (tool-bar-mode -1)
 			     (scroll-bar-mode -1)
 			     (global-auto-revert-mode t)
@@ -133,30 +135,29 @@
   (let ((treesit-install-directory (expand-file-name "tree-sitter" user-emacs-directory)))
     (make-directory treesit-install-directory t)
     (add-to-list 'treesit-extra-load-path treesit-install-directory))
+
+  (setq treesit-font-lock-level 4)
   
   (setq treesit-language-source-alist
 	'((java "https://github.com/tree-sitter/tree-sitter-java")
 	  (tsx "https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")
 	  (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")))
 
-  (dolist (entry treesit-language-source-alist)
-    (let ((lang (car entry)))
-      (unless (treesit-language-available-p lang)
-	(treesit-install-language-grammar lang))))
+  (unless (eq system-type 'windows-nt)
+    (dolist (entry treesit-language-source-alist)
+      (let ((lang (car entry)))
+	(unless (treesit-language-available-p lang)
+	  (treesit-install-language-grammar lang)))))
   
   (setq major-mode-remap-alist
 	'((java-mode . java-ts-mode)
+	  (c++-mode . c++-ts-mode)
+	  (c-mode . c-ts-mode)
 	  (typescript-mode . typescript-ts-mode))))
 
-;; Java: Google Java Style + Maven compile, scoped to java-ts-mode buffers.
-;; Intentionally no LSP / autocomplete — editing-only workflow.
 (with-eval-after-load 'java-ts-mode
   (define-key java-ts-mode-map (kbd "C-c c") 'project-compile))
 
-;; Format-on-save via apheleia (async, preserves point/scroll).
-;; Requires:
-;;   - google-java-format on PATH (brew install google-java-format)
-;;   - prettier on PATH         (brew install prettier)
 (when (require-package 'apheleia)
   (with-eval-after-load 'apheleia
     (setf (alist-get 'java-ts-mode       apheleia-mode-alist) 'google-java-format
@@ -190,3 +191,13 @@ on save inside argument lists, parameter lists, etc."
             (subword-mode 1)
             (electric-pair-local-mode 1)
             (apheleia-mode 1)))
+
+(add-hook 'c++-ts-mode-hook
+	  (lambda ()
+	    (setq-local indent-tabs-mode nil)
+	    (setq-local fill-column 100)
+	    (setq-local compile-command "build")
+	    (setq-local c-ts-mode-indent-offset 4)
+	    (display-fill-column-indicator-mode 1)
+	    (electric-pair-local-mode 1)))
+
